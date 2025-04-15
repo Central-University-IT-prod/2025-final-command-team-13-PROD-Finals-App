@@ -1,0 +1,70 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      - JWT_SECRET=REDACTED
+      - PORT=8000
+      - DATABASE_URL=REDACTED/prod
+      - MINIO_BUCKET_NAME=prod
+      - MINIO_ENDPOINT=http://s3:9000
+      - MINIO_ACCESS_KEY_ID=ZZxdWf3Q4Gu7Wk3hklOGDDYg
+      - MINIO_SECRET_ACCESS_KEY=REDACTED
+    depends_on:
+      - db
+      - s3
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - backend
+    restart: always
+
+  nginx:
+    image: nginx:1.27.4-alpine3.21
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+      - ./certs:/etc/nginx/ssl
+    depends_on:
+      - backend
+    restart: always
+
+  db:
+    image: postgres:17.2-alpine3.21
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=prod
+    ports:
+      - "REDACTED:5432"
+    volumes:
+      - postgres_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  s3:
+    image: bitnami/minio:2025.2.7
+    ports:
+      - "REDACTED:9000"
+      - "REDACTED:9001"
+    environment:
+      - MINIO_ROOT_USER=ZZxdWf3Q4Gu7Wk3hklOGDDYg
+      - MINIO_ROOT_PASSWORD=REDACTED
+      - MINIO_DEFAULT_BUCKETS=prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  postgres_db:
